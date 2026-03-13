@@ -3,17 +3,17 @@
   "task_description": "Write a Python script that generates a formatted calendar for March 2026.\n\nThe script must:\n1. Print a title line: \"      March 2026\"\n2. Print column headers: \" Mon Tue Wed Thu Fri Sat Sun\"\n3. Print the days of the month in a grid, right-aligned in 4-character wide columns\n4. March 2026 starts on a SUNDAY. The first row must have blanks for Mon through Sat, then \"1\" in the Sun column.\n5. Continue filling rows until day 31\n6. After the calendar grid, print a blank line, then print\n   \"Weekdays: 22, Weekend days: 9\"\n\nIMPORTANT: March 1, 2026 is a Sunday. Use Zeller's congruence or the datetime module\nto verify the day of week. Do NOT use the calendar module.\n\nExample of the expected first two data rows:\n                         1\n   2   3   4   5   6   7   8\n",
   "status": "success",
   "num_attempts": 1,
-  "total_duration_seconds": 17.43,
+  "total_duration_seconds": 21.95,
   "attempts": [
     {
       "attempt": 1,
       "status": "success",
-      "duration_seconds": 17.42,
+      "duration_seconds": 21.94,
       "error_summary": ""
     }
   ],
-  "final_script_path": "scenarios/scenario_1_calendar/results/off-by-one-gauntlet/script.py",
-  "final_stdout": "",
-  "final_stderr": "python: can't open file '/Users/naman/workspace/multi-agent-mlx/scenarios/scenario_1_calendar/results/off-by-one-gauntlet/scenarios/scenario_1_calendar/results/off-by-one-gauntlet/script.py': [Errno 2] No such file or directory\n",
-  "final_exit_code": 2
+  "final_script_path": "/Users/naman/workspace/multi-agent-mlx/scenarios/scenario_1_calendar/results/off-by-one-gauntlet/script.py",
+  "final_stdout": "      3 2026\n Mon Tue Wed Thu Fri Sat Sun\n                           1\n   2   3   4   5   6   7   8\n   9  10  11  12  13  14  15\n  16  17  18  19  20  21  22\n  23  24  25  26  27  28  29\n  30  31\nWeekdays: 22, Weekend days: 9\n",
+  "final_stderr": "",
+  "final_exit_code": 0
 }

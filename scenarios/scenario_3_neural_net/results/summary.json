@@ -1,0 +1,25 @@
+{
+  "task_name": "gradient-descent-from-scratch",
+  "task_description": "Write a Python script that trains a simple neural network using ONLY numpy.\nNo ML frameworks allowed.\n\nThe script must:\n1. Use np.random.seed(42)\n2. Generate 200 data points for binary classification:\n   - X is shape (200, 2) from np.random.randn\n   - y = 1 where (X[:,0] + X[:,1]) > 0, else 0\n   - y must be shape (200, 1)\n3. Build a single-layer network: Input(2) -> Output(1, Sigmoid)\n   - W shape (2, 1), initialized with np.random.randn(2, 1) * 0.01\n   - b shape (1, 1), initialized to zeros\n   - Sigmoid: 1 / (1 + np.exp(-z))\n4. Train for 1000 epochs with learning_rate=1.0:\n   - Forward: Z = X @ W + b, A = sigmoid(Z)\n   - Loss: binary cross-entropy = -mean(y*log(A) + (1-y)*log(1-A))\n   - Clip A to [1e-7, 1-1e-7] before taking log\n   - Backward: dZ = A - y, dW = (1/m) * X.T @ dZ, db = (1/m) * sum(dZ)\n   - Update: W -= lr * dW, b -= lr * db\n5. Every 200 epochs print: \"Epoch <N>: loss=<L:.4f>, acc=<A:.1f>%\"\n6. Final line must print: \"Final accuracy: <A:.1f>%\" and accuracy must be >= 90%\n7. Save W, b, X, y to \"model_data.npz\" using np.savez\n",
+  "status": "success",
+  "num_attempts": 2,
+  "total_duration_seconds": 49.47,
+  "attempts": [
+    {
+      "attempt": 1,
+      "status": "failed",
+      "duration_seconds": 24.06,
+      "error_summary": "VERDICT: FAIL\n\n## Error Type: SyntaxError\n## Traceback:\n```\n  File \"/Users/naman/workspace/multi-agent-mlx/scenarios/scenario_3_neural_net/results/gradient-descent-from-scratch/script.py\", line 65\n   "
+    },
+    {
+      "attempt": 2,
+      "status": "success",
+      "duration_seconds": 25.39,
+      "error_summary": ""
+    }
+  ],
+  "final_script_path": "/Users/naman/workspace/multi-agent-mlx/scenarios/scenario_3_neural_net/results/gradient-descent-from-scratch/script.py",
+  "final_stdout": "Epoch 200: loss=0.0819, acc=100.0%\nEpoch 400: loss=0.0603, acc=100.0%\nEpoch 600: loss=0.0504, acc=100.0%\nEpoch 800: loss=0.0444, acc=100.0%\nEpoch 1000: loss=0.0402, acc=100.0%\nFinal accuracy: 100.0%\n",
+  "final_stderr": "",
+  "final_exit_code": 0
+}

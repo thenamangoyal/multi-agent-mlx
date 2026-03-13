@@ -1,0 +1,8 @@
+=== stdout ===
+
+
+=== stderr ===
+  File "/Users/naman/workspace/multi-agent-mlx/scenarios/scenario_3_neural_net/results/gradient-descent-from-scratch/script.py", line 65
+    - The script generates 200 data points for binary classification.
+          ^^^^^^
+SyntaxError: invalid syntax

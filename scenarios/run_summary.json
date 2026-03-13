@@ -1,0 +1,31 @@
+{
+  "model": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",
+  "total_duration_seconds": 230.35,
+  "total_cost": "$0.00",
+  "scenarios": [
+    {
+      "scenario": "Scenario 1: The Off-by-One Gauntlet (Pure Algorithm)",
+      "task_name": "off-by-one-gauntlet",
+      "status": "success",
+      "attempts": 1,
+      "duration": 22.0,
+      "results_dir": "/Users/naman/workspace/multi-agent-mlx/scenarios/scenario_1_calendar/results"
+    },
+    {
+      "scenario": "Scenario 2: The CSV Detective (Data Pipeline)",
+      "task_name": "csv-detective",
+      "status": "success",
+      "attempts": 3,
+      "duration": 158.8,
+      "results_dir": "/Users/naman/workspace/multi-agent-mlx/scenarios/scenario_2_csv/results"
+    },
+    {
+      "scenario": "Scenario 3: Gradient Descent from Scratch (ML Math)",
+      "task_name": "gradient-descent-from-scratch",
+      "status": "success",
+      "attempts": 2,
+      "duration": 49.6,
+      "results_dir": "/Users/naman/workspace/multi-agent-mlx/scenarios/scenario_3_neural_net/results"
+    }
+  ]
+}

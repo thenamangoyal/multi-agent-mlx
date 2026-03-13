@@ -1,40 +1,32 @@
 name: gradient-descent-from-scratch
 description: |
-  Write a Python script that implements a 2-layer neural network from scratch
-  using ONLY numpy. No autograd, no ML frameworks.
+  Write a Python script that trains a simple neural network using ONLY numpy.
+  No ML frameworks allowed.
 
-  The network must:
-  1. Generate a synthetic binary classification dataset:
-     - 300 samples, 2 input features
-     - Create two interleaving half-circles (moons pattern)
-     - Class 0: points along upper half-circle centered at (0,0) with radius 1
-     - Class 1: points along lower half-circle centered at (1,0.5) with radius 1
-     - Add Gaussian noise with std=0.2
-     - Use np.random.seed(42)
-
-  2. Architecture: Input(2) -> Hidden(16 neurons, ReLU) -> Output(1, Sigmoid)
-     - Initialize weights with He initialization: W * sqrt(2/fan_in)
-     - Initialize biases to zeros
-
-  3. Implement forward pass AND manual backpropagation:
-     - Compute gradients dW1, db1, dW2, db2 using the chain rule
-     - Use binary cross-entropy loss: -mean(y*log(p) + (1-y)*log(1-p))
-     - Clip predictions to [1e-7, 1-1e-7] before log to avoid numerical issues
-
-  4. Train with SGD (learning_rate=0.1) for 1000 epochs
-
-  5. Every 200 epochs, print the epoch number, loss, and accuracy percentage.
-     Format loss to 4 decimal places, accuracy to 1 decimal place.
-
-  6. The final line must print the final accuracy percentage, which must be >= 85.0
-
-  7. After training, save the dataset (X, y) and trained weights (W1, b1, W2, b2) to a file called "model_data.npz" using np.savez so they can be loaded later for visualization.
+  The script must:
+  1. Use np.random.seed(42)
+  2. Generate 200 data points for binary classification:
+     - X is shape (200, 2) from np.random.randn
+     - y = 1 where (X[:,0] + X[:,1]) > 0, else 0
+     - y must be shape (200, 1)
+  3. Build a single-layer network: Input(2) -> Output(1, Sigmoid)
+     - W shape (2, 1), initialized with np.random.randn(2, 1) * 0.01
+     - b shape (1, 1), initialized to zeros
+     - Sigmoid: 1 / (1 + np.exp(-z))
+  4. Train for 1000 epochs with learning_rate=1.0:
+     - Forward: Z = X @ W + b, A = sigmoid(Z)
+     - Loss: binary cross-entropy = -mean(y*log(A) + (1-y)*log(1-A))
+     - Clip A to [1e-7, 1-1e-7] before taking log
+     - Backward: dZ = A - y, dW = (1/m) * X.T @ dZ, db = (1/m) * sum(dZ)
+     - Update: W -= lr * dW, b -= lr * db
+  5. Every 200 epochs print: "Epoch <N>: loss=<L:.4f>, acc=<A:.1f>%"
+  6. Final line must print: "Final accuracy: <A:.1f>%" and accuracy must be >= 90%
+  7. Save W, b, X, y to "model_data.npz" using np.savez
 constraints:
   - "Use only numpy and the Python standard library"
   - "Do NOT import mlx, torch, tensorflow, jax, or sklearn"
-  - "Manual backpropagation required, compute all gradients explicitly via chain rule"
-  - "Final accuracy must be >= 85%"
-  - "Must complete in under 30 seconds"
-  - "Must save model_data.npz with keys X, y, W1, b1, W2, b2"
-max_attempts: 5
-timeout: 60
+  - "Final accuracy must be >= 90%"
+  - "Must complete in under 10 seconds"
+  - "Must save model_data.npz"
+max_attempts: 3
+timeout: 30

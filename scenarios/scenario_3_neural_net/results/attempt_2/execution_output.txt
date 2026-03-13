@@ -1,0 +1,10 @@
+=== stdout ===
+Epoch 200: loss=0.0819, acc=100.0%
+Epoch 400: loss=0.0603, acc=100.0%
+Epoch 600: loss=0.0504, acc=100.0%
+Epoch 800: loss=0.0444, acc=100.0%
+Epoch 1000: loss=0.0402, acc=100.0%
+Final accuracy: 100.0%
+
+
+=== stderr ===

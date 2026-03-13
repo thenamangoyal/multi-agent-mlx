@@ -1,0 +1,16 @@
+=== stdout ===
+=== Sales Analysis Report ===
+Revenue by Product:
+  Doohickey: $125,089.64
+  Gadget: $90,750.45
+  Widget: $90,696.45
+
+
+=== stderr ===
+Traceback (most recent call last):
+  File "/Users/naman/workspace/multi-agent-mlx/scenarios/scenario_2_csv/results/csv-detective/script.py", line 70, in <module>
+    print_report(revenue_by_product, top_product, top_region, top_month, total_revenue)
+  File "/Users/naman/workspace/multi-agent-mlx/scenarios/scenario_2_csv/results/csv-detective/script.py", line 63, in print_report
+    print(f"Top Region: {top_region} (${region_revenue[top_region]:,.2f})")
+                                        ^^^^^^^^^^^^^^
+NameError: name 'region_revenue' is not defined
