@@ -161,8 +161,8 @@ agent:
   max_attempts: 5
   execution_timeout: 60    # seconds per script run
   llm_timeout: 120         # seconds per LLM call
-  max_tokens_per_turn: 4096
-  total_token_budget: 50000
+  max_tokens_per_turn: 8192
+  total_token_budget: 100000
   temperature: 0.0
   stagnation_threshold: 3  # same error N times → stop
 ```
@@ -182,6 +182,25 @@ factory server start       Start the MLX inference server
 factory server status      Check if server is running
 factory server stop        Stop the server
 ```
+
+### Server Management
+
+The MLX server consumes ~4 GB of RAM while running. You should stop it when not in use:
+
+```bash
+# Check if the server is running
+uv run factory server status
+# or: curl -s http://127.0.0.1:8080/v1/models
+
+# Stop the server
+uv run factory server stop
+# or: pkill -f "mlx_lm.server"
+
+# Check for any lingering processes
+ps aux | grep mlx_lm.server | grep -v grep
+```
+
+The `factory run` command auto-starts and auto-stops the server by default. Use `--no-server` if you want to manage the server lifecycle manually.
 
 ### Task Files
 
