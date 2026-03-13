@@ -1,0 +1,9 @@
+name: fibonacci
+description: |
+  Write a Python script that computes and prints the first 20 Fibonacci numbers.
+  The output should be one number per line.
+constraints:
+  - Use only the Python standard library
+  - Must complete in under 5 seconds
+max_attempts: 3
+timeout: 10

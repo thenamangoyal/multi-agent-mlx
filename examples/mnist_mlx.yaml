@@ -1,0 +1,16 @@
+name: mnist-mlx
+description: |
+  Write a complete Python script that trains a simple 2-layer MLP on MNIST using MLX.
+  The script should:
+  1. Download MNIST data (use mlx.data or manually fetch from a URL)
+  2. Define a simple MLP with two hidden layers (128 units each) and ReLU activations
+  3. Train for 5 epochs using SGD
+  4. Print training loss each epoch
+  5. Print final test accuracy
+constraints:
+  - Use mlx and mlx.nn for the model
+  - Use numpy for data loading if needed
+  - Must complete training in under 120 seconds
+  - Print accuracy as a percentage
+max_attempts: 5
+timeout: 180

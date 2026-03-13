@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+workspace/output/
+*.egg-info/
+dist/
+build/
+.ruff_cache/
+run.log
