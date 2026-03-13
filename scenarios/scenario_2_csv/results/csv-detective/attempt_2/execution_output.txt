@@ -1,0 +1,10 @@
+=== stdout ===
+=== Sales Analysis Report ===
+Revenue by Product:
+  Doohickey: $125,089.64
+  Gadget: $90,750.45
+  Widget: $90,696.45
+Top Region: May ($42,193.29)
+
+
+=== stderr ===

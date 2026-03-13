@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -27,6 +28,32 @@ from factory.models import AttemptRecord, RunResult, Task, TaskStatus
 from factory.tools.executor import execute_script
 
 console = Console()
+
+
+def _get_memory_mb() -> float:
+    """Get current process RSS in MB (macOS/Linux)."""
+    try:
+        import resource
+        rusage = resource.getrusage(resource.RUSAGE_SELF)
+        return rusage.ru_maxrss / (1024 * 1024)  # macOS returns bytes
+    except Exception:
+        return 0.0
+
+
+def _format_elapsed(start: float) -> str:
+    """Format elapsed time since start as mm:ss."""
+    elapsed = time.time() - start
+    m, s = divmod(int(elapsed), 60)
+    return f"{m}:{s:02d}"
+
+
+def _log_phase(phase: str, run_start: float, extra: str = "") -> None:
+    """Print a timestamped phase marker."""
+    elapsed = _format_elapsed(run_start)
+    mem = _get_memory_mb()
+    mem_str = f" | mem={mem:.0f}MB" if mem > 0 else ""
+    extra_str = f" | {extra}" if extra else ""
+    console.print(f"[dim][{elapsed}]{mem_str}{extra_str} — {phase}[/dim]")
 
 
 def _error_hash(text: str) -> str:
@@ -196,15 +223,26 @@ def run_task(task: Task, config: Config) -> RunResult:
         console.print(f"[bold cyan]{'━' * 60}[/bold cyan]")
         attempt_start = time.time()
 
+        # Token budget status
+        budget_pct = (total_tokens / config.agent.total_token_budget) * 100
+        _log_phase(
+            "Starting attempt",
+            run_start,
+            f"tokens ~{total_tokens}/{config.agent.total_token_budget} ({budget_pct:.0f}%)",
+        )
+
         # --- Coder turn ---
         console.print("\n[yellow]🔧 Coder[/yellow] is writing code...")
         coder_prompt = _build_coder_prompt(task, attempt, error_report)
+        prompt_chars = len(coder_prompt)
+        _log_phase(f"Sending to Coder (prompt: {prompt_chars} chars)", run_start)
 
         try:
             coder_response = coder.run(coder_prompt)
             coder_text = coder_response.content if coder_response else ""
         except Exception as e:
             console.print(f"[red]Coder error: {e}[/red]")
+            _log_phase(f"Coder FAILED with exception: {type(e).__name__}", run_start)
             result.attempts.append(
                 AttemptRecord(
                     attempt=attempt,
@@ -215,7 +253,11 @@ def run_task(task: Task, config: Config) -> RunResult:
             continue
 
         coder_duration = time.time() - attempt_start
-        console.print(f"[dim]Coder responded in {coder_duration:.1f}s[/dim]")
+        response_chars = len(coder_text) if coder_text else 0
+        _log_phase(
+            f"Coder responded ({coder_duration:.1f}s, {response_chars} chars)",
+            run_start,
+        )
 
         # Show Coder's commentary
         if coder_text:
@@ -230,8 +272,16 @@ def run_task(task: Task, config: Config) -> RunResult:
             code = _extract_code(coder_text)
             if code:
                 script_path.write_text(code)
+                code_lines = len(code.splitlines())
                 console.print(
-                    "[yellow]Tool not called — extracted code from response[/yellow]"
+                    f"[yellow]Tool not called — extracted code from response ({code_lines} lines)[/yellow]"
+                )
+            else:
+                # Log what we tried to extract from for debugging
+                has_backticks = "```" in coder_text
+                console.print(
+                    f"[red]Code extraction failed (response has {'```' if has_backticks else 'no ```'}, "
+                    f"response length: {response_chars} chars)[/red]"
                 )
 
         if not script_path.exists():
@@ -253,16 +303,22 @@ def run_task(task: Task, config: Config) -> RunResult:
         # Show the generated script
         script_content = script_path.read_text()
         line_count = len(script_content.splitlines())
-        console.print(f"\n[green]Script ready ({line_count} lines)[/green]")
+        console.print(f"\n[green]Script ready ({line_count} lines, {len(script_content)} chars)[/green]")
         console.print(
             Syntax(script_content, "python", theme="monokai", line_numbers=True)
         )
 
         # --- Execute the script directly ---
-        console.print("\n[yellow]⚡ Executing script...[/yellow]")
+        _log_phase(f"Executing script (timeout: {execution_timeout}s)", run_start)
+        exec_start = time.time()
         exec_result = execute_script(script_path, workspace, timeout=execution_timeout)
+        exec_duration = time.time() - exec_start
 
-        console.print(f"[dim]Execution took {exec_result.duration_seconds:.1f}s, exit code: {exec_result.exit_code}[/dim]")
+        _log_phase(
+            f"Execution done (exit={exec_result.exit_code}, {exec_duration:.1f}s"
+            f"{', TIMEOUT' if exec_result.timed_out else ''})",
+            run_start,
+        )
         if exec_result.stdout.strip():
             console.print(Panel(exec_result.stdout[-2000:], title="stdout", border_style="blue"))
         if exec_result.stderr.strip():
@@ -276,12 +332,16 @@ def run_task(task: Task, config: Config) -> RunResult:
             attempt, exec_result.stdout, exec_result.stderr,
             exec_result.exit_code, script_content
         )
+        _log_phase(f"Sending to Sheriff (prompt: {len(sheriff_prompt)} chars)", run_start)
 
         try:
+            sheriff_start = time.time()
             sheriff_response = sheriff.run(sheriff_prompt)
             sheriff_text = sheriff_response.content if sheriff_response else ""
+            sheriff_duration = time.time() - sheriff_start
         except Exception as e:
             console.print(f"[red]Sheriff error: {e}[/red]")
+            _log_phase(f"Sheriff FAILED with exception: {type(e).__name__}", run_start)
             # If Sheriff LLM fails, fall back to exit code
             if exec_result.exit_code == 0 and not exec_result.timed_out:
                 sheriff_text = "VERDICT: PASS\nScript executed successfully with exit code 0."
@@ -290,9 +350,13 @@ def run_task(task: Task, config: Config) -> RunResult:
                     f"VERDICT: FAIL\n## Error\nExit code: {exec_result.exit_code}\n"
                     f"## stderr:\n{exec_result.stderr[-1000:]}"
                 )
+            sheriff_duration = time.time() - (time.time() - exec_duration - coder_duration)
 
         duration = time.time() - attempt_start
-        console.print(f"[dim]Sheriff responded in {time.time() - attempt_start - exec_result.duration_seconds - coder_duration:.1f}s[/dim]")
+        _log_phase(
+            f"Sheriff responded ({sheriff_duration:.1f}s, {len(sheriff_text)} chars)",
+            run_start,
+        )
 
         # Show Sheriff's full report
         if sheriff_text:
@@ -318,6 +382,11 @@ def run_task(task: Task, config: Config) -> RunResult:
             console.print(
                 f"\n[bold green]✅ Attempt {attempt} PASSED[/bold green] ({duration:.1f}s)"
             )
+            _log_phase(
+                f"PASS — total attempt time {duration:.1f}s "
+                f"(coder={coder_duration:.1f}s exec={exec_duration:.1f}s sheriff={sheriff_duration:.1f}s)",
+                run_start,
+            )
             result.attempts.append(
                 AttemptRecord(
                     attempt=attempt,
@@ -332,6 +401,11 @@ def run_task(task: Task, config: Config) -> RunResult:
         else:
             console.print(
                 f"\n[bold red]❌ Attempt {attempt} FAILED[/bold red] ({duration:.1f}s)"
+            )
+            _log_phase(
+                f"FAIL — total attempt time {duration:.1f}s "
+                f"(coder={coder_duration:.1f}s exec={exec_duration:.1f}s sheriff={sheriff_duration:.1f}s)",
+                run_start,
             )
             error_report = sheriff_text
 
@@ -367,9 +441,17 @@ def run_task(task: Task, config: Config) -> RunResult:
 
         # Token budget check
         total_tokens += config.agent.max_tokens_per_turn * 2
+        budget_pct = (total_tokens / config.agent.total_token_budget) * 100
         if total_tokens >= config.agent.total_token_budget:
-            console.print("[bold red]Token budget exhausted. Stopping.[/bold red]")
+            console.print(
+                f"[bold red]Token budget exhausted ({total_tokens}/{config.agent.total_token_budget}). Stopping.[/bold red]"
+            )
             break
+        else:
+            _log_phase(
+                f"Token budget: ~{total_tokens}/{config.agent.total_token_budget} ({budget_pct:.0f}% used)",
+                run_start,
+            )
 
     if result.status != TaskStatus.SUCCESS:
         result.status = TaskStatus.FAILED
