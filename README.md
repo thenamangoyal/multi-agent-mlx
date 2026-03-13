@@ -101,16 +101,21 @@ Both agents share a single `mlx_lm.server` instance. They're just two different 
 This is the key design constraint for 16 GB machines. Running two separate 7B models would blow past memory. One model loaded once, two identities, sequential turns.
 
 ```
-                    writes code
-      Coder   ───────────────────►   Sheriff
-    (Agent A)                       (Agent B)
-              ◄───────────────────
-                  error report /
-                   fix requests
-
-              both hit the same
-              mlx_lm.server on
-              localhost:8080
+User Task Description
+        |
+        v
+  +-----------+                    +-----------+
+  |  Coder    |   writes code      |  Sheriff  |
+  |  (Agent A)|  ------------->    |  (Agent B)|
+  |           |                    |           |
+  |  System:  |   error report /   |  System:  |
+  |  "Write   |  <-------------   |  "Run &   |
+  |   code"   |    fix requests    |   test"   |
+  +-----------+                    +-----------+
+        |                                |
+        +------ same mlx_lm.server ------+
+                  localhost:8080
+              (one model, two personas)
 ```
 
 **Why the orchestrator executes code directly:** Small quantized models (4-bit 7B) are unreliable at tool calling — they often dump code in markdown instead of invoking tools. So the orchestrator handles the mechanical part (extraction, execution), and the LLMs focus on what they're actually good at: generating code and analyzing errors.
