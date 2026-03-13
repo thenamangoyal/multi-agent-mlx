@@ -36,10 +36,24 @@ def _error_hash(text: str) -> str:
 
 
 def _extract_code(text: str) -> str | None:
-    """Extract Python code from markdown code blocks in LLM response."""
+    """Extract Python code from markdown code blocks in LLM response.
+
+    Handles both closed (```python...```) and unclosed blocks where the model
+    hit the token limit before outputting the closing ```.
+    """
+    # Try closed blocks first
     blocks = re.findall(r"```(?:python)?\s*\n(.*?)```", text, re.DOTALL)
     if blocks:
-        return max(blocks, key=len)  # longest block is most likely the full script
+        return max(blocks, key=len)
+
+    # Fallback: unclosed block (model hit token limit before closing ```)
+    m = re.search(r"```(?:python)?\s*\n(.+)", text, re.DOTALL)
+    if m:
+        code = m.group(1).rstrip()
+        # Only accept if it looks like real code (has at least a few lines)
+        if code.count("\n") >= 2:
+            return code
+
     return None
 
 

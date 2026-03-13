@@ -25,6 +25,10 @@ def execute_script(
     timeout: int = 60,
 ) -> ExecutionResult:
     """Execute a Python script in the workspace with timeout."""
+    # Resolve to absolute paths to avoid double-relative issues
+    script_path = script_path.resolve()
+    workspace = workspace.resolve()
+
     if not script_path.exists():
         return ExecutionResult(
             exit_code=1,

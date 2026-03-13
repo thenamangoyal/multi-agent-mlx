@@ -27,11 +27,14 @@ description: |
      Format loss to 4 decimal places, accuracy to 1 decimal place.
 
   6. The final line must print the final accuracy percentage, which must be >= 85.0
+
+  7. After training, save the dataset (X, y) and trained weights (W1, b1, W2, b2) to a file called "model_data.npz" using np.savez so they can be loaded later for visualization.
 constraints:
   - "Use only numpy and the Python standard library"
   - "Do NOT import mlx, torch, tensorflow, jax, or sklearn"
   - "Manual backpropagation required, compute all gradients explicitly via chain rule"
   - "Final accuracy must be >= 85%"
   - "Must complete in under 30 seconds"
+  - "Must save model_data.npz with keys X, y, W1, b1, W2, b2"
 max_attempts: 5
 timeout: 60

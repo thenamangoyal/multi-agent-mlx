@@ -18,8 +18,8 @@ class AgentConfig:
     max_attempts: int = 5
     execution_timeout: int = 60
     llm_timeout: int = 120
-    max_tokens_per_turn: int = 4096
-    total_token_budget: int = 50_000
+    max_tokens_per_turn: int = 8192
+    total_token_budget: int = 100_000
     temperature: float = 0.0
     stagnation_threshold: int = 3  # same error N times → stuck
 
