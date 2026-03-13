@@ -1,0 +1,26 @@
+name: off-by-one-gauntlet
+description: |
+  Write a Python script that generates a formatted calendar for March 2026.
+
+  The script must:
+  1. Print a title line: "      March 2026"
+  2. Print column headers: " Mon Tue Wed Thu Fri Sat Sun"
+  3. Print the days of the month in a grid, right-aligned in 4-character wide columns
+  4. March 2026 starts on a SUNDAY. The first row must have blanks for Mon through Sat, then "1" in the Sun column.
+  5. Continue filling rows until day 31
+  6. After the calendar grid, print a blank line, then print
+     "Weekdays: 22, Weekend days: 9"
+
+  IMPORTANT: March 1, 2026 is a Sunday. Use Zeller's congruence or the datetime module
+  to verify the day of week. Do NOT use the calendar module.
+
+  Example of the expected first two data rows:
+                           1
+     2   3   4   5   6   7   8
+constraints:
+  - "Use only the Python standard library"
+  - "Do NOT import the calendar module"
+  - 'The final line of output must be exactly "Weekdays: 22, Weekend days: 9"'
+  - "Must complete in under 5 seconds"
+max_attempts: 5
+timeout: 10

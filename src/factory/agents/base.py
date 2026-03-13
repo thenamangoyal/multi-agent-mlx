@@ -16,7 +16,7 @@ def create_agent(
 ) -> Agent:
     """Create an Agno agent pointed at the local mlx_lm server."""
     model = OpenAILike(
-        id=config.server.model.split("/")[-1],  # use short name as model ID
+        id=config.server.model,  # must match what mlx_lm.server reports at /v1/models
         base_url=f"http://{config.server.host}:{config.server.port}/v1",
         api_key="not-needed",
     )
@@ -26,5 +26,4 @@ def create_agent(
         instructions=instructions,
         tools=tools,
         markdown=True,
-        show_tool_calls=True,
     )

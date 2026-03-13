@@ -1,0 +1,41 @@
+name: csv-detective
+description: |
+  Write a Python script that performs a complete data analysis pipeline:
+
+  STEP 1 - Generate a CSV file called "sales_data.csv" with these exact columns:
+    date,product,region,units,price_per_unit
+  Generate exactly 200 rows of synthetic sales data with:
+    - dates spanning January 2025 to December 2025 (randomly sampled)
+    - products chosen randomly from: "Widget", "Gadget", "Doohickey"
+    - regions chosen randomly from: "North", "South", "East", "West"
+    - units: random integer between 1 and 100 (inclusive)
+    - price_per_unit: random float between 5.00 and 50.00, rounded to 2 decimal places
+  Use random.seed(42) for reproducibility.
+
+  STEP 2 - Read back "sales_data.csv" and compute:
+    - Total revenue (units * price_per_unit) per product, sorted descending by revenue
+    - The region with the highest total revenue
+    - The month (as a full name, e.g., "March") with the highest total revenue
+
+  STEP 3 - Print a formatted report exactly like this:
+    === Sales Analysis Report ===
+    Revenue by Product:
+      <Product>: $<amount>
+      <Product>: $<amount>
+      <Product>: $<amount>
+    Top Region: <region> ($<amount>)
+    Top Month: <month> ($<amount>)
+    Total Records: 200
+
+  All dollar amounts MUST use comma separators for thousands and exactly 2 decimal places.
+  Example: $12,345.67 (NOT $12345.67).
+  Use the Python format spec {:,.2f} for this.
+constraints:
+  - "Use only the Python standard library (csv, random, datetime)"
+  - "Do NOT use pandas, numpy, or any third-party libraries"
+  - "The CSV must be written to disk and then read back from sales_data.csv"
+  - "Use random.seed(42) so output is deterministic"
+  - "Dollar amounts must have comma thousands separators like $1,234.56"
+  - "Must complete in under 10 seconds"
+max_attempts: 5
+timeout: 15
