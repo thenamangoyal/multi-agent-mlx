@@ -30,7 +30,9 @@ User Task Description
                   (one model, two personas)
 ```
 
-This is a **coordinator pattern** — the orchestrator asks the Coder to generate code, hands it to the Sheriff who executes it, and if the Sheriff reports errors, passes them back to the Coder. No free-form multi-agent chat, no model swapping.
+This is a **coordinator pattern** — the orchestrator asks the Coder to generate code, runs it in a sandboxed subprocess, then feeds the execution results to the Sheriff for analysis. If the Sheriff reports failure, the error report goes back to the Coder. No free-form multi-agent chat, no model swapping.
+
+**Why the orchestrator executes directly:** Small quantized models (4-bit 7B) are unreliable at tool calling — they often output code in markdown instead of invoking tools. The orchestrator handles the mechanical execution step, while the LLMs focus on what they're good at: the Coder *generates* code, the Sheriff *analyzes* results and suggests fixes.
 
 ### Memory Budget (16GB M1 Pro)
 
@@ -51,18 +53,20 @@ This is the core innovation. Most coding agents generate and hope. This one gene
 ```
 ORCHESTRATOR LOOP (max N iterations, default 5):
 
-  1. CODER TURN
+  1. CODER TURN (LLM call)
      Input: task description + (if retry) Sheriff's error report
-     Tools: write_file, read_file, list_files
-     Output: writes script to workspace/<task>/script.py
+     Output: Python script (via tool call or markdown code block extraction)
 
-  2. SHERIFF TURN
-     Input: path to script
-     Tools: execute_code (sandboxed subprocess), read_file
-     Action: runs `python script.py` with timeout
+  2. EXECUTION (orchestrator, not LLM)
+     Runs `python script.py` in sandboxed subprocess with timeout
+     Captures stdout, stderr, exit code
 
-     → SUCCESS (exit code 0): loop ends ✓
-     → FAILURE: structured error report → back to step 1
+  3. SHERIFF TURN (LLM call)
+     Input: script content + stdout + stderr + exit code
+     Output: VERDICT (PASS/FAIL) + analysis + suggested fix
+
+     → PASS: loop ends ✓
+     → FAIL: error report → back to step 1
 
   3. BOOKKEEPING
      Track attempts, detect stagnation, enforce token budget

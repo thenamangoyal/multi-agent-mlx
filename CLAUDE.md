@@ -11,6 +11,9 @@ Local multi-agent system on Apple Silicon. Two SLM agents (Coder + Sheriff) coll
 ## Architecture
 - Single mlx_lm.server instance, both agents share it as two system-prompt personas
 - Orchestrator (Python, not LLM) drives the Coder→Sheriff feedback loop
+- Orchestrator handles script execution directly (small models unreliably call tools)
+- Coder generates code (via tools or markdown fallback extraction)
+- Sheriff analyzes execution results (stdout/stderr/exit code fed into its prompt)
 - Bounded autonomy: max attempts, stagnation detection, token budget
 
 ## Conventions

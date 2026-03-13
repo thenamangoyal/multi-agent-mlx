@@ -1,10 +1,17 @@
-"""Orchestrator — drives the Coder → Sheriff feedback loop."""
+"""Orchestrator — drives the Coder → Sheriff feedback loop.
+
+Handles tool-calling fallback: small local models often output code in markdown
+blocks instead of calling tools. The orchestrator extracts code from responses
+and executes scripts directly, using the LLM only for generation and analysis.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
+import subprocess
 import time
 from pathlib import Path
 
@@ -17,6 +24,7 @@ from factory.agents.coder import create_coder
 from factory.agents.sheriff import create_sheriff
 from factory.config import Config
 from factory.models import AttemptRecord, RunResult, Task, TaskStatus
+from factory.tools.executor import execute_script
 
 console = Console()
 
@@ -25,6 +33,14 @@ def _error_hash(text: str) -> str:
     """Hash the last 5 lines of an error for stagnation detection."""
     lines = text.strip().splitlines()[-5:]
     return hashlib.md5("\n".join(lines).encode()).hexdigest()
+
+
+def _extract_code(text: str) -> str | None:
+    """Extract Python code from markdown code blocks in LLM response."""
+    blocks = re.findall(r"```(?:python)?\s*\n(.*?)```", text, re.DOTALL)
+    if blocks:
+        return max(blocks, key=len)  # longest block is most likely the full script
+    return None
 
 
 def _build_coder_prompt(task: Task, attempt: int, error_report: str | None) -> str:
@@ -36,28 +52,50 @@ def _build_coder_prompt(task: Task, attempt: int, error_report: str | None) -> s
         for c in task.constraints:
             parts.append(f"- {c}")
 
+    parts.append(
+        "## Instructions\n"
+        "Write the COMPLETE Python script. Put it inside a ```python code block.\n"
+        "Also try to use the write_file tool to save it as 'script.py'."
+    )
+
     if error_report:
         parts.append(f"## Previous Attempt #{attempt - 1} Failed")
         parts.append(error_report)
         parts.append(
-            "\nFix the issues described above. Write the corrected script.py file."
+            "\nFix the issues described above. Write the corrected script."
         )
 
     return "\n\n".join(parts)
 
 
-def _build_sheriff_prompt(attempt: int) -> str:
-    """Build the prompt for the Sheriff agent."""
-    return (
-        f"## Review Attempt #{attempt}\n\n"
-        "Read the file `script.py`, then execute it using `execute_code`.\n"
-        "Evaluate whether it runs successfully and produces correct output.\n"
-        "Respond with your VERDICT (PASS or FAIL) and analysis."
+def _build_sheriff_prompt(attempt: int, exec_stdout: str, exec_stderr: str, exit_code: int, script_content: str) -> str:
+    """Build the prompt for the Sheriff to analyze execution results."""
+    parts = [
+        f"## Review Attempt #{attempt}\n",
+        "You are reviewing the execution of a Python script.\n",
+        f"### Script ({len(script_content.splitlines())} lines):\n```python\n{script_content}\n```\n",
+        f"### Execution Result:\n- Exit code: {exit_code}",
+    ]
+
+    if exec_stdout.strip():
+        parts.append(f"\n### stdout:\n```\n{exec_stdout[-2000:]}\n```")
+    if exec_stderr.strip():
+        parts.append(f"\n### stderr:\n```\n{exec_stderr[-2000:]}\n```")
+
+    parts.append(
+        "\n## Your Task:\n"
+        "Evaluate whether the script ran successfully and produced correct output.\n"
+        "If it succeeded, respond starting with: VERDICT: PASS\n"
+        "If it failed, respond starting with: VERDICT: FAIL\n"
+        "Then provide your analysis and suggested fix."
     )
+
+    return "\n".join(parts)
 
 
 def _save_attempt_artifacts(
-    workspace: Path, attempt: int, script_path: Path, sheriff_text: str | None
+    workspace: Path, attempt: int, script_path: Path,
+    sheriff_text: str | None, exec_stdout: str = "", exec_stderr: str = ""
 ) -> None:
     """Save per-attempt artifacts for blog/debugging."""
     attempt_dir = workspace / f"attempt_{attempt}"
@@ -68,6 +106,11 @@ def _save_attempt_artifacts(
 
     if sheriff_text:
         (attempt_dir / "sheriff_report.txt").write_text(sheriff_text)
+
+    if exec_stdout or exec_stderr:
+        (attempt_dir / "execution_output.txt").write_text(
+            f"=== stdout ===\n{exec_stdout}\n\n=== stderr ===\n{exec_stderr}"
+        )
 
 
 def _save_summary(workspace: Path, result: RunResult, total_duration: float) -> None:
@@ -91,7 +134,6 @@ def _save_summary(workspace: Path, result: RunResult, total_duration: float) -> 
 
     if result.final_script:
         summary["final_script_path"] = str(workspace / "script.py")
-        import subprocess
         try:
             proc = subprocess.run(
                 ["python", str(workspace / "script.py")],
@@ -115,6 +157,7 @@ def run_task(task: Task, config: Config) -> RunResult:
     workspace.mkdir(parents=True, exist_ok=True)
 
     max_attempts = task.max_attempts or config.agent.max_attempts
+    execution_timeout = task.timeout or config.agent.execution_timeout
     run_start = time.time()
 
     coder = create_coder(workspace, config)
@@ -167,21 +210,28 @@ def run_task(task: Task, config: Config) -> RunResult:
                 preview += "..."
             console.print(Panel(preview, title="Coder Response", border_style="yellow"))
 
-        # Check script was written
+        # Check script was written — fallback: extract from markdown
         script_path = workspace / "script.py"
+        if not script_path.exists() and coder_text:
+            code = _extract_code(coder_text)
+            if code:
+                script_path.write_text(code)
+                console.print(
+                    "[yellow]Tool not called — extracted code from response[/yellow]"
+                )
+
         if not script_path.exists():
-            console.print("[red]Coder did not write script.py![/red]")
+            console.print("[red]Coder did not produce any code![/red]")
             error_report = (
                 "VERDICT: FAIL\n"
-                "## Error Type: MissingFile\n"
-                "## Analysis: You did not write script.py. Use the write_file tool to create it.\n"
-                "## Suggested Fix: Call write_file('script.py', <your code>)"
+                "## Error: No code produced\n"
+                "## Suggested Fix: Write a complete Python script in a ```python code block."
             )
             result.attempts.append(
                 AttemptRecord(
                     attempt=attempt,
                     status=TaskStatus.FAILED,
-                    error_summary="Coder did not produce script.py",
+                    error_summary="No code produced",
                 )
             )
             continue
@@ -189,42 +239,63 @@ def run_task(task: Task, config: Config) -> RunResult:
         # Show the generated script
         script_content = script_path.read_text()
         line_count = len(script_content.splitlines())
-        console.print(f"\n[green]Coder wrote script.py ({line_count} lines)[/green]")
+        console.print(f"\n[green]Script ready ({line_count} lines)[/green]")
         console.print(
             Syntax(script_content, "python", theme="monokai", line_numbers=True)
         )
 
-        # --- Sheriff turn ---
-        sheriff_start = time.time()
-        console.print("\n[yellow]🔍 Sheriff[/yellow] is reviewing and executing...")
-        sheriff_prompt = _build_sheriff_prompt(attempt)
+        # --- Execute the script directly ---
+        console.print("\n[yellow]⚡ Executing script...[/yellow]")
+        exec_result = execute_script(script_path, workspace, timeout=execution_timeout)
+
+        console.print(f"[dim]Execution took {exec_result.duration_seconds:.1f}s, exit code: {exec_result.exit_code}[/dim]")
+        if exec_result.stdout.strip():
+            console.print(Panel(exec_result.stdout[-2000:], title="stdout", border_style="blue"))
+        if exec_result.stderr.strip():
+            console.print(Panel(exec_result.stderr[-2000:], title="stderr", border_style="red"))
+        if exec_result.timed_out:
+            console.print("[red]Script timed out![/red]")
+
+        # --- Sheriff turn: analyze the execution result ---
+        console.print("\n[yellow]🔍 Sheriff[/yellow] is analyzing results...")
+        sheriff_prompt = _build_sheriff_prompt(
+            attempt, exec_result.stdout, exec_result.stderr,
+            exec_result.exit_code, script_content
+        )
 
         try:
             sheriff_response = sheriff.run(sheriff_prompt)
             sheriff_text = sheriff_response.content if sheriff_response else ""
         except Exception as e:
             console.print(f"[red]Sheriff error: {e}[/red]")
-            result.attempts.append(
-                AttemptRecord(
-                    attempt=attempt,
-                    status=TaskStatus.FAILED,
-                    error_summary=f"Sheriff LLM error: {e}",
+            # If Sheriff LLM fails, fall back to exit code
+            if exec_result.exit_code == 0 and not exec_result.timed_out:
+                sheriff_text = "VERDICT: PASS\nScript executed successfully with exit code 0."
+            else:
+                sheriff_text = (
+                    f"VERDICT: FAIL\n## Error\nExit code: {exec_result.exit_code}\n"
+                    f"## stderr:\n{exec_result.stderr[-1000:]}"
                 )
-            )
-            continue
 
-        sheriff_duration = time.time() - sheriff_start
         duration = time.time() - attempt_start
-        console.print(f"[dim]Sheriff responded in {sheriff_duration:.1f}s[/dim]")
+        console.print(f"[dim]Sheriff responded in {time.time() - attempt_start - exec_result.duration_seconds - coder_duration:.1f}s[/dim]")
 
         # Show Sheriff's full report
         if sheriff_text:
+            is_fail = "VERDICT: FAIL" in (sheriff_text or "").upper()
             console.print(
-                Panel(sheriff_text, title="Sheriff Report", border_style="red" if "FAIL" in (sheriff_text or "").upper() else "green")
+                Panel(
+                    sheriff_text[:3000],
+                    title="Sheriff Report",
+                    border_style="red" if is_fail else "green",
+                )
             )
 
         # Save per-attempt artifacts
-        _save_attempt_artifacts(workspace, attempt, script_path, sheriff_text)
+        _save_attempt_artifacts(
+            workspace, attempt, script_path, sheriff_text,
+            exec_result.stdout, exec_result.stderr
+        )
 
         # --- Evaluate verdict ---
         passed = "VERDICT: PASS" in sheriff_text.upper() if sheriff_text else False
@@ -250,13 +321,16 @@ def run_task(task: Task, config: Config) -> RunResult:
             )
             error_report = sheriff_text
 
+            # Delete script so Coder writes a new one next time
+            script_path.unlink(missing_ok=True)
+
             # Stagnation detection
             eh = _error_hash(sheriff_text or "")
             error_hashes.append(eh)
             stag = config.agent.stagnation_threshold
             if len(error_hashes) >= stag and len(set(error_hashes[-stag:])) == 1:
                 console.print(
-                    f"[bold red]⚠️  Stagnation detected: same error {stag} times in a row. Stopping.[/bold red]"
+                    f"[bold red]⚠️  Stagnation: same error {stag}x. Stopping.[/bold red]"
                 )
                 result.attempts.append(
                     AttemptRecord(
