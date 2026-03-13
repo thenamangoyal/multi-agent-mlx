@@ -1,6 +1,10 @@
 # Multi-Agent MLX Software Factory
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19002113.svg)](https://doi.org/10.5281/zenodo.19002113)
+
 A fully local, zero-API-key multi-agent system where two AI agents collaborate to write and debug Python scripts — running entirely on Apple Silicon using [MLX](https://github.com/ml-explore/mlx).
+
+**Blog post:** [Two AI Agents, One MacBook, Zero API Keys](https://namangoyal.com/blog/2026/multi-agent-factory/) — interactive simulation, real scenario walkthroughs, and design lessons.
 
 **Agent A (Coder)** writes Python scripts. **Agent B (Sheriff)** executes them, reads the terminal stack traces, and forces the Coder to fix its bugs. The loop continues until the code works or bounded autonomy limits kick in.
 
@@ -328,6 +332,21 @@ uv run factory run --no-server --max-attempts 2 "Write a script that prints hell
 | **This project (local MLX)** | **$0.00** | **100% on-device** | **~1–5s per turn** |
 
 When agents get stuck in 10+ iteration loops, cloud costs compound fast. Locally, it's just electricity.
+
+## Citation
+
+If you use this in your research, please cite:
+
+```bibtex
+@software{goyal2026two-ai-agents-one-macbook-zero-api-keys,
+  title   = {Two AI Agents, One MacBook, Zero API Keys},
+  author  = {Goyal, Naman},
+  year    = {2026},
+  month   = {Mar},
+  doi     = {10.5281/zenodo.19002113},
+  url     = {https://namangoyal.com/blog/2026/multi-agent-factory/}
+}
+```
 
 ## License
 
