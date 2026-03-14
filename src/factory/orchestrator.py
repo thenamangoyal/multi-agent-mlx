@@ -412,9 +412,10 @@ def run_task(task: Task, config: Config) -> RunResult:
             # Delete script so Coder writes a new one next time
             script_path.unlink(missing_ok=True)
 
-            # Stagnation detection
-            eh = _error_hash(sheriff_text or "")
-            error_hashes.append(eh)
+            # Stagnation detection — hash raw stderr (not Sheriff LLM text)
+            if exec_result.stderr and exec_result.stderr.strip():
+                eh = _error_hash(exec_result.stderr)
+                error_hashes.append(eh)
             stag = config.agent.stagnation_threshold
             if len(error_hashes) >= stag and len(set(error_hashes[-stag:])) == 1:
                 console.print(
